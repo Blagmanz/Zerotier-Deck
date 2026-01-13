@@ -20,6 +20,12 @@ fi
 # Make system writable 
 if ! test -w /usr; then exec_cmd sudo steamos-readonly disable; fi
 
+# Fix pacman keyring issues common on SteamOS
+log "Resetting pacman keyring..."
+exec_cmd sudo rm -rf /etc/pacman.d/gnupg
+exec_cmd sudo pacman-key --init
+exec_cmd sudo pacman-key --populate archlinux holo
+
 # Ensure keyrings are present
 exec_cmd sudo pacman -Sy --noconfirm
 exec_cmd sudo pacman -S --needed --noconfirm archlinux-keyring holo-keyring || true
@@ -58,30 +64,16 @@ exec_cmd sudo systemctl enable --now zerotier-one
 # Wait for daemon readiness
 log "Waiting for zerotier-one..."
 for i in {1..30}; do
-  [[ -f /var/lib/zerotier-one/zerotier-one.port ]] && break
+  if sudo test -f /var/lib/zerotier-one/zerotier-one.port >/dev/null 2>&1; then
+    break
+  fi
   sleep 1
 done
-if [[ ! -f /var/lib/zerotier-one/zerotier-one.port ]]; then
+if ! sudo test -f /var/lib/zerotier-one/zerotier-one.port >/dev/null 2>&1; then
   echo "zerotier-one failed to start. Check logs:" >&2
   sudo journalctl -u zerotier-one -b --no-pager | tail -n 50 >&2
   exit 1
 fi
-
-# Ask for network ID
-read -rp "ZeroTier Network ID: " NETID
-if [[ -n "$NETID" ]]; then
-  log "Joining $NETID..."
-  for _ in {1..10}; do
-    if sudo zerotier-cli join "$NETID" >/dev/null 2>&1; then break; fi
-    sleep 3
-  done
-fi
-
-# Wait for ONLINE state
-for _ in {1..20}; do
-  sudo zerotier-cli info 2>/dev/null | grep -q "ONLINE" && break
-  sleep 3
-done
 
 # Simple watchdog
 cat <<'EOF' | sudo tee /usr/local/bin/zerotier-watchdog.sh >/dev/null
@@ -111,7 +103,32 @@ EOF
 exec_cmd sudo systemctl daemon-reload
 exec_cmd sudo systemctl enable --now zerotier-watchdog.service
 
+log "ZeroTier current status:"
 sudo zerotier-cli info || true
+
+read -rp "Enter a ZeroTier Network ID to join (leave blank to skip): " NETID
+if [[ -n "$NETID" ]]; then
+  log "Joining $NETID..."
+  for _ in {1..10}; do
+    if sudo zerotier-cli join "$NETID" >/dev/null 2>&1; then
+      log "Join request sent."
+      break
+    fi
+    sleep 3
+  done
+
+  log "Waiting for ONLINE state..."
+  for _ in {1..20}; do
+    if sudo zerotier-cli info 2>/dev/null | grep -q "ONLINE"; then
+      break
+    fi
+    sleep 3
+  done
+
+  sudo zerotier-cli info || true
+  sudo zerotier-cli listnetworks || true
+fi
+
 log "Setup complete."
 
 #shura
