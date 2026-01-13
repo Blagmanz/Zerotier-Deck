@@ -2,6 +2,8 @@
 
 Getting ZeroTier running on SteamOS can be a grind: read-only root, broken pacman keys, failed installs, services that stop the moment you switch to Game Mode… this little script automates every workaround so you can just join your network and play.
 
+Thank you - https://github.com/0xHexo/Zerotier-Deck for the original
+
 ## Highlights
 
 - Makes `/usr` writable temporarily and repairs pacman keyrings automatically.
