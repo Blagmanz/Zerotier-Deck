@@ -1,5 +1,8 @@
 # ZeroTier Setup for Steam Deck
 
+OG https://github.com/0xHexo/Zerotier-Deck
+
+
 If you’ve been fighting to get ZeroTier working on your Steam Deck, this script should make your life easier.  
 It fixes the usual SteamOS problems — the read-only filesystem, broken pacman keys, failed installs — and sets up ZeroTier so it actually stays online, even in Game Mode.  
 
